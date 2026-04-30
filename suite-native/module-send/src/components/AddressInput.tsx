@@ -8,7 +8,7 @@ import {
     selectAccountNetworkSymbol,
 } from '@suite-common/wallet-core';
 import { type AccountKey } from '@suite-common/wallet-types';
-import { isAddressValid } from '@suite-common/wallet-utils';
+import { isAddressValid, isSymbolSupportingNamedAddress } from '@suite-common/wallet-utils';
 import { type NativeAccountsRootState, selectFreshAccountAddress } from '@suite-native/accounts';
 import { events } from '@suite-native/analytics';
 import { Button, HStack, Text, VStack } from '@suite-native/atoms';
@@ -20,8 +20,10 @@ import { useAnalytics } from '@suite-native/services';
 import { HELP_CENTER_EVM_ADDRESS_CHECKSUM, HELP_CENTER_SOLANA_HELP_URL } from '@trezor/urls';
 
 import { AddressInfoMessage } from './AddressInfoMessage';
+import { EnsResolutionMessage } from './EnsResolutionMessage';
 import { QrCodeBottomSheetIcon } from './QrCodeBottomSheetIcon';
 import { useAddressValidationAlerts } from '../hooks/useAddressValidationAlerts/useAddressValidationAlerts';
+import { useResolvedAddress } from '../hooks/useAddressValidationAlerts/useResolvedAddress';
 import { useSolAssociatedTokenAddress } from '../hooks/useAddressValidationAlerts/useSolAssociatedTokenAddress';
 import { type SendOutputsFormValues } from '../sendOutputsFormSchema';
 import { getOutputFieldName } from '../utils';
@@ -47,6 +49,10 @@ export const AddressInput = ({ index, accountKey }: AddressInputProps) => {
     );
 
     const { wasAddressChecksummed } = useAddressValidationAlerts({ inputIndex: index });
+    const { isResolving, resolvedAddress, reverseResolvedName, isResolveError } =
+        useResolvedAddress({
+            inputIndex: index,
+        });
 
     const handleScanAddressQRCode = (qrCodeData: string) => {
         setValue(addressFieldName, qrCodeData, { shouldValidate: true });
@@ -88,7 +94,13 @@ export const AddressInput = ({ index, accountKey }: AddressInputProps) => {
         <VStack spacing="sp12">
             <HStack alignItems="center" spacing="sp12">
                 <Text variant="body-sm">
-                    <Translation id="moduleSend.outputs.recipients.addressLabel" />
+                    <Translation
+                        id={
+                            symbol && isSymbolSupportingNamedAddress(symbol)
+                                ? 'moduleSend.outputs.recipients.addressOrEnsLabel'
+                                : 'moduleSend.outputs.recipients.addressLabel'
+                        }
+                    />
                 </Text>
                 {/* Tokens labels wouldn't sync properly between desktop & mobile, so labeling is */}
                 {/* turned off for tokens until it's fixed. */}
@@ -134,6 +146,16 @@ export const AddressInput = ({ index, accountKey }: AddressInputProps) => {
                     txId="moduleSend.outputs.recipients.solAssociatedAccountAddress.label"
                     link={HELP_CENTER_SOLANA_HELP_URL}
                 />
+            )}
+            {isResolving && <EnsResolutionMessage state="resolving" />}
+            {!isResolving && resolvedAddress && (
+                <EnsResolutionMessage state="resolved" address={resolvedAddress} />
+            )}
+            {!isResolving && !resolvedAddress && reverseResolvedName && (
+                <EnsResolutionMessage state="reverseResolved" name={reverseResolvedName} />
+            )}
+            {!isResolving && !resolvedAddress && isResolveError && (
+                <EnsResolutionMessage state="error" />
             )}
         </VStack>
     );

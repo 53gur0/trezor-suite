@@ -2132,18 +2132,6 @@ export const messages = {
             claiming: 'Claiming',
             changeDelegate: 'Change delegate',
             changingDelegate: 'Changing delegate',
-            tron: {
-                createAccount: 'Create Account',
-                updateAccount: 'Update Account',
-                deploySmartContract: 'Deploy Smart Contract',
-                voteWitness: 'Vote Witness',
-                freezeBalance: 'Freeze Balance',
-                unfreezeBalance: 'Unfreeze Balance',
-                withdrawBalance: 'Withdraw Balance',
-                claimRewards: 'Claim Rewards',
-                delegateResource: 'Delegate Resource',
-                undelegateResource: 'Undelegate Resource',
-            },
         },
         TransactionDetailScreen: {
             sheetSubtitle: 'Transaction #{transactionId}',
@@ -2361,13 +2349,6 @@ export const messages = {
         accountsList: {
             title: 'Send',
         },
-        defi: {
-            banner: {
-                title: '{token} represents your position in a vault.',
-                description:
-                    'If you transfer this token elsewhere, you will move your entire position and stop future rewards.',
-            },
-        },
         outputs: {
             title: '{assetName} Send',
             correctNetworkMessage:
@@ -2389,6 +2370,13 @@ export const messages = {
             recipients: {
                 title: 'Recipient & amount',
                 addressLabel: 'Recipient address',
+                addressOrEnsLabel: 'Address / ENS',
+                ens: {
+                    resolving: 'Resolving name…',
+                    resolvedTo: 'Resolved to {address}',
+                    resolvesTo: 'Resolves to {name}',
+                    resolveFailed: 'Could not resolve name. Check that the name is correct.',
+                },
                 checksum: {
                     label: 'We’ve adjusted the casing of your address to match checksum format. <link>Learn more</link>',
                     alert: {
@@ -2500,6 +2488,8 @@ export const messages = {
                 step1: 'Go to the app or place where you originally got the address.',
                 step2: 'Compare the original address with what’s on your Trezor.',
                 step3: 'If they match exactly, confirm on your Trezor.',
+                ensSendingTo: 'Sending to {ensName}',
+                ensResolvedTo: 'Resolves to {address}',
                 originBottomSheet: {
                     title: 'What’s the place of origin?',
                     subtitle: 'Think of how you’ve initially retrieved the address.',
@@ -2699,7 +2689,7 @@ export const messages = {
         earnFormScreen: {
             title: '{assetName} staking',
             unstakeTitle: 'Unstake {displaySymbol}',
-            staked: 'Staked',
+            availableBalance: 'Available balance',
             unstakingTimeline: 'Unstaking timeline',
             unstakingPeriodInfo:
                 'The unstaking period is currently {days, plural, one {~# day} other {~# days}}',
@@ -2936,25 +2926,12 @@ export const messages = {
             rate: 'Rate',
             selectedRate: 'Selected rate',
             footer: {
-                termsOfProvider:
-                    'This service is offered by {companyName}, not Trezor. <link>Terms apply</link>',
                 termsAndConditionsProvider:
                     "Trezor doesn't provide this service. It's governed by <link>{companyName}'s Terms & Conditions</link>.",
                 termsAndConditionsGeneral:
                     "Trezor doesn't provide this service. It's governed by provider's Terms & Conditions.",
                 termsOfUse: "Trezor's Terms of Use",
                 learnMore: 'Learn more',
-                termsAndConditionsGeneric:
-                    'This service is offered by a third-party provider, not Trezor. Provider’s terms apply.',
-                howTradingWorksSheet: {
-                    title: 'How trading works',
-                    sheetTitle: 'How trading with Trezor works',
-                    item1: 'Trezor compares trusted exchange providers to find the best offer',
-                    item2: 'Providers use your location only to show relevant offers',
-                    item3: 'Trezor never sees your payment or KYC data\n<text>You share it only with the exchange if you complete the trade.</text>',
-                    item4: 'How fees are calculated',
-                    item5: 'Trezor’s Terms of Use',
-                },
             },
             balance: 'Balance:',
             providerOffer: 'Provider offer: {amount}',
@@ -2965,10 +2942,7 @@ export const messages = {
                 settings: 'Advanced settings',
             },
             kycWarning: 'This provider requires to know your identity.',
-            kycRequired: 'Identity verification will be required.',
             buttons: {
-                buyVia: 'Buy via {providerName}',
-                sellVia: 'Sell via {providerName}',
                 continue: 'Continue',
                 swap: 'Swap',
                 approveAndSwap: 'Approve and swap',
@@ -3153,17 +3127,6 @@ export const messages = {
         tradingReviewOutputs: {
             title: 'Review with Trezor',
             submitButton: 'Send transaction',
-        },
-        tradingConfirmationScreen: {
-            approveHeaderTitle: 'Approve {symbol} spending',
-            revokeHeaderTitle: 'Revoke {symbol} approval',
-            approveTitle: 'Confirming approval',
-            revokeTitle: 'Confirming revoke',
-            subtitle: 'This may take a few moments.',
-            pending: 'Pending',
-            error: 'Error confirming transaction. Please try again.',
-            date: 'Date',
-            exploreInBlockchain: 'Explore in blockchain',
         },
         exchangeApprovalLimitSheet: {
             title: 'Set limit',
