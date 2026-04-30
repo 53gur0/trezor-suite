@@ -2389,6 +2389,13 @@ export const messages = {
             recipients: {
                 title: 'Recipient & amount',
                 addressLabel: 'Recipient address',
+                addressOrEnsLabel: 'Address / ENS',
+                ens: {
+                    resolving: 'Resolving name…',
+                    resolvedTo: 'Resolved to {address}',
+                    resolvesTo: 'Resolves to {name}',
+                    resolveFailed: 'Could not resolve name. Check that the name is correct.',
+                },
                 checksum: {
                     label: 'We’ve adjusted the casing of your address to match checksum format. <link>Learn more</link>',
                     alert: {
@@ -2500,6 +2507,8 @@ export const messages = {
                 step1: 'Go to the app or place where you originally got the address.',
                 step2: 'Compare the original address with what’s on your Trezor.',
                 step3: 'If they match exactly, confirm on your Trezor.',
+                ensSendingTo: 'Sending to {ensName}',
+                ensResolvedTo: 'Resolves to {address}',
                 originBottomSheet: {
                     title: 'What’s the place of origin?',
                     subtitle: 'Think of how you’ve initially retrieved the address.',

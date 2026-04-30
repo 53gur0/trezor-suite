@@ -9,7 +9,9 @@ import {
     isAmountWithinNetworkReserve,
     isBech32AddressUppercase,
     isDecimalsValid,
+    isSymbolSupportingNamedAddress,
     isTaprootAddress,
+    looksLikeNamedAddress,
 } from '@suite-common/wallet-utils';
 import { type FeeLevelsMaxAmount } from '@suite-native/transaction-management';
 import { BigNumber, isNotNullOrUndefined } from '@trezor/utils';
@@ -112,13 +114,20 @@ const outputSchema = yup.object({
         .test(
             'is-invalid-address',
             'The address format is incorrect.',
-            (value, { options: { context } }: yup.TestContext<SendFormFormContext>) => {
+            function (value, { options: { context } }: yup.TestContext<SendFormFormContext>) {
                 if (!value || !context) {
                     return false;
                 }
                 const { symbol, isTaprootAvailable } = context;
 
                 if (!symbol) return false;
+
+                // For ENS-supporting symbols, defer raw-address validity when the input looks
+                // like a name — the `is-name-resolved` test then gates submission on the
+                // sibling resolvedAddress being populated and itself a valid hex address.
+                if (isSymbolSupportingNamedAddress(symbol) && looksLikeNamedAddress(value)) {
+                    return true;
+                }
 
                 const isTaprootValid = isTaprootAvailable || !isTaprootAddress(value, symbol);
 
@@ -128,6 +137,26 @@ const outputSchema = yup.object({
                     !isBech32AddressUppercase(value) && // bech32 addresses are valid as uppercase but are not accepted by Trezor
                     isTaprootValid // bech32m/Taproot addresses are valid but may not be supported by older FW
                 );
+            },
+        )
+        .test(
+            'is-name-resolved',
+            'ENS name could not be resolved.',
+            function (value, { options: { context } }: yup.TestContext<SendFormFormContext>) {
+                if (!value || !context) return true;
+                const { symbol } = context;
+                if (!symbol) return true;
+                if (!isSymbolSupportingNamedAddress(symbol)) return true;
+                if (!looksLikeNamedAddress(value)) return true;
+
+                const { resolvedAddress } = this.parent as { resolvedAddress?: string };
+
+                // `undefined` means the resolution is still pending; do not error yet.
+                // Only an explicit empty/invalid value (set by useResolvedAddress on
+                // resolution failure) should mark the field as invalid.
+                if (resolvedAddress === undefined) return true;
+
+                return isAddressValid(resolvedAddress, symbol);
             },
         )
         .test(
@@ -261,6 +290,7 @@ const outputSchema = yup.object({
     fiat: yup.string(),
     token: yup.string().required().nullable(),
     label: yup.string(),
+    resolvedAddress: yup.string().optional(),
 });
 
 export type OutputsFormValues = yup.InferType<typeof outputSchema>;
