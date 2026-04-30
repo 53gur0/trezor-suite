@@ -214,7 +214,8 @@ export const composeEthereumTransactionFeeLevelsThunk = createThunk<
 
         const { output, tokenInfo, decimals } = composedOutput;
         const { availableBalance } = account;
-        const { address, amount } = formState.outputs[0];
+        const { amount, resolvedAddress } = formState.outputs[0];
+        const address = resolvedAddress ?? formState.outputs[0].address;
 
         const ethereumEstimateFeeParams =
             isApproveTx && contract
@@ -404,7 +405,7 @@ export const signEthereumSendFormTransactionThunk = createThunk<
         const transaction = prepareEthereumTransaction({
             token: precomposedTransaction.token,
             chainId: network.chainId,
-            to: formState.outputs[0].address,
+            to: formState.outputs[0].resolvedAddress ?? formState.outputs[0].address,
             amount: formState.outputs[0].amount,
             data: formState.transactionData,
             gasLimit: precomposedTransaction.feeLimit || '',

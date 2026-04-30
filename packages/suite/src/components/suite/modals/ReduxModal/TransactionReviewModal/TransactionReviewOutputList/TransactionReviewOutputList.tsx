@@ -16,6 +16,7 @@ import {
     findAccountsByAddress,
     getEvmTransactionTextSignature,
     isEvmApprovalTx,
+    looksLikeNamedAddress,
 } from '@suite-common/wallet-utils';
 import { Column, H4 } from '@trezor/components';
 import { spacings, spacingsPx } from '@trezor/theme';
@@ -134,12 +135,28 @@ export const TransactionReviewOutputList = ({
         !isInternalTransfer &&
         !signedTx
     ) {
+        // If the user typed an ENS name, the form keeps the original input on `address`
+        // and the resolved hex on `resolvedAddress`. Surface both so the user can cross-
+        // check what they entered against what the device shows.
+        const firstFormOutput =
+            'outputs' in precomposedForm ? precomposedForm.outputs?.[0] : undefined;
+        const isEnsResolved =
+            !!firstFormOutput &&
+            !!firstFormOutput.address &&
+            !!firstFormOutput.resolvedAddress &&
+            firstFormOutput.address !== firstFormOutput.resolvedAddress &&
+            looksLikeNamedAddress(firstFormOutput.address);
+        const ensName = isEnsResolved ? firstFormOutput.address : undefined;
+        const ensResolvedAddress = isEnsResolved ? firstFormOutput.resolvedAddress : undefined;
+
         return (
             <TransactionReviewVerifyAddress
                 networkType={networkType}
                 deadline={deadline}
                 onTryAgain={onTryAgain}
                 isSending={isSending}
+                ensName={ensName}
+                resolvedAddress={ensResolvedAddress}
             />
         );
     }

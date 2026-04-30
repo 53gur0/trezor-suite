@@ -39,7 +39,12 @@ import { InputError } from 'src/components/wallet';
 import { type InputErrorProps } from 'src/components/wallet/InputError';
 import { useDispatch, useSelector } from 'src/hooks/suite';
 import { useSendFormContext } from 'src/hooks/wallet';
+import { resolveViaRPC, useResolveNamedAddress } from 'src/hooks/wallet/useResolveNamedAddress';
 import { useAnalytics } from 'src/support/useAnalytics';
+import {
+    isSymbolSupportingNamedAddress,
+    looksLikeNamedAddress,
+} from 'src/utils/suite/namedAddress';
 import { getProtocolInfo } from 'src/utils/suite/protocol';
 import { captureSentryMessage } from 'src/utils/suite/sentry';
 
@@ -81,6 +86,7 @@ export const Address = ({ output, outputId, outputsCount }: AddressProps) => {
     // If address is not valid then compose process will never be triggered,
     // however if address is changed compose process may return `AMOUNT_IS_NOT_ENOUGH` which should appear under the amount filed.
     const amountInputName = `outputs.${outputId}.amount` as const;
+    const resolvedAddressInputName = `outputs.${outputId}.resolvedAddress` as const;
     const outputError = errors.outputs ? errors.outputs[outputId] : undefined;
     const addressError = outputError ? outputError.address : undefined;
     const addressValue = getDefaultValue(inputName, output.address || '');
@@ -92,6 +98,7 @@ export const Address = ({ output, outputId, outputsCount }: AddressProps) => {
     const broadcastEnabled = options.includes('broadcast');
     const isOnline = useSelector(state => state.suite.online);
     const isDebug = useSelector(selectIsDebugModeActive);
+    const resolveNamedAddressQuery = useResolveNamedAddress(address, symbol);
 
     const [isExternalAddressCheckWarningDismissed, setIsExternalAddressCheckWarningDismissed] =
         useState(false);
@@ -268,6 +275,7 @@ export const Address = ({ output, outputId, outputsCount }: AddressProps) => {
             composeTransaction(amountInputName);
             setHasAddressChecksummed(false);
             setAutocorrectMessage(undefined);
+            setValue(resolvedAddressInputName, undefined);
 
             if (autocorrectTimeout.current) {
                 clearTimeout(autocorrectTimeout.current);
@@ -299,6 +307,10 @@ export const Address = ({ output, outputId, outputsCount }: AddressProps) => {
                 }
             },
             valid: (value: string) => {
+                // Named inputs (e.g. ENS) are validated asynchronously in evmChecks
+                if (isSymbolSupportingNamedAddress(symbol) && looksLikeNamedAddress(value)) {
+                    return;
+                }
                 if (!isAddressValid(value, symbol)) {
                     return translationString('RECIPIENT_IS_NOT_VALID');
                 }
@@ -326,35 +338,50 @@ export const Address = ({ output, outputId, outputsCount }: AddressProps) => {
                     return true;
                 }
             },
-            evmChecks: async (address: string) => {
+            evmChecks: async (recipientInput: string) => {
                 if (networkType !== 'ethereum' && networkType !== 'tron') return;
+
+                const isNamedInput = looksLikeNamedAddress(recipientInput);
+                // Unsupported symbol + named input: let `valid:` surface the error.
+                if (isNamedInput && !isSymbolSupportingNamedAddress(symbol)) return;
 
                 if (!isOnline) {
                     return translationString('TR_ADDRESS_CANT_VERIFY_HISTORY');
                 }
 
                 const result = await TrezorConnect.getAccountInfo({
-                    descriptor: address,
+                    descriptor: recipientInput,
                     coin: symbol,
                 });
 
                 if (!result.success) {
-                    return translationString('TR_ADDRESS_CANT_VERIFY_HISTORY');
+                    return isNamedInput
+                        ? translationString('TR_ENS_RESOLVE_FAILED')
+                        : translationString('TR_ADDRESS_CANT_VERIFY_HISTORY');
                 }
 
                 const { payload } = result;
 
-                // 1. Validate address checksum.
-                // Eth addresses are valid without checksum but Trezor displays them as checksummed.
-                if (networkType === 'ethereum' && !checkAddressCheckSum(address)) {
-                    const checksumAndUsageValidationResult = checkIsAddressNotUsedNotChecksummed(
-                        address,
+                if (isNamedInput) {
+                    // For dotted inputs, payload.descriptor is Blockbook's resolved hex
+                    // (see @trezor/connect getAccountInfo descriptor override).
+                    // Recompose now that the onchain address is known.
+                    setValue(resolvedAddressInputName, payload.descriptor);
+                    composeTransaction(amountInputName);
+
+                    return;
+                }
+
+                if (networkType === 'ethereum' && !checkAddressCheckSum(recipientInput)) {
+                    // Eth addresses are valid without checksum but Trezor displays them as checksummed.
+                    const requiresChecksumWarning = checkIsAddressNotUsedNotChecksummed(
+                        recipientInput,
                         payload.history,
                         inputName,
                         setValue,
                         setHasAddressChecksummed,
                     );
-                    if (checksumAndUsageValidationResult) {
+                    if (requiresChecksumWarning) {
                         return translationString('TR_ETH_ADDRESS_NOT_USED_NOT_CHECKSUMMED');
                     }
                 }
@@ -410,6 +437,18 @@ export const Address = ({ output, outputId, outputsCount }: AddressProps) => {
         knownOnly: true,
     });
 
+    const isResolvingNamedAddress =
+        isSymbolSupportingNamedAddress(symbol) &&
+        looksLikeNamedAddress(address) &&
+        resolveNamedAddressQuery.isFetching;
+
+    const resolvedNamedAddress =
+        isSymbolSupportingNamedAddress(symbol) &&
+        looksLikeNamedAddress(address) &&
+        resolveNamedAddressQuery.isSuccess
+            ? resolveNamedAddressQuery.data
+            : undefined;
+
     const getBottomText = () => {
         if (addressError) {
             return <InputError message={addressError.message} {...getInputErrorProps()} />;
@@ -428,6 +467,16 @@ export const Address = ({ output, outputId, outputsCount }: AddressProps) => {
 
         if (autocorrectMessage) {
             return autocorrectMessage;
+        }
+
+        if (isResolvingNamedAddress) {
+            return <Translation id="TR_ENS_RESOLVING" />;
+        }
+
+        if (resolvedNamedAddress) {
+            return (
+                <Translation id="TR_ENS_RESOLVED_TO" values={{ address: resolvedNamedAddress }} />
+            );
         }
 
         return isAddressWithLabel ? addressLabelComponent : null;
@@ -457,7 +506,15 @@ export const Address = ({ output, outputId, outputsCount }: AddressProps) => {
         <Input
             hasError={!!addressError}
             rightContent={<Icon name="qrCode" onClick={handleQrClick} />}
-            label={<Translation id="RECIPIENT_ADDRESS" />}
+            label={
+                <Translation
+                    id={
+                        isSymbolSupportingNamedAddress(symbol)
+                            ? 'RECIPIENT_ADDRESS_OR_ENS'
+                            : 'RECIPIENT_ADDRESS'
+                    }
+                />
+            }
             labelLeft={
                 <Translation
                     id={outputsCount > 1 ? 'TR_SEND_RECIPIENT_ADDRESS' : 'TR_SEND_ADDRESS_SECTION'}
