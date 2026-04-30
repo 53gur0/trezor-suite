@@ -114,3 +114,4 @@ export * from './stake/stakeDataSlice';
 export * from './uiEvent/defaultTrezorUIEventHandlerThunk';
 export * from './uiEvent/scopedCallIdRegistry';
 export * from './discovery/passphraseWalletThunks';
+export * from './named-address/useResolveNamedAddress';
