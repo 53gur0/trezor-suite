@@ -18,6 +18,10 @@ const DEFAULT_POLICY: PolicyConfig = {
 
     // Bytes
     INVALID_BYTES32: 'error',
+    INVALID_BYTES: 'error',
+
+    // ENS
+    INVALID_ENS_NAME: 'error',
 
     // Cross-param
     ARRAYS_LENGTH_MISMATCH: 'error',

@@ -10,6 +10,7 @@ import { selectIsDebugModeActive } from '@suite/settings';
 import { getNetworkSymbolForProtocol } from '@suite-common/suite-utils';
 import { notificationsActions } from '@suite-common/toast-notifications';
 import { formInputsMaxLength } from '@suite-common/validators';
+import { resolveViaRPC, useResolveNamedAddress } from '@suite-common/wallet-core';
 import type { Output } from '@suite-common/wallet-types';
 import {
     checkIsAddressNotUsedNotChecksummed,
@@ -19,7 +20,9 @@ import {
     isBech32AddressUppercase,
     isBitcoinCashAddressUppercase,
     isProgramDerivedAccount,
+    isSymbolSupportingNamedAddress,
     isTaprootAddress,
+    looksLikeNamedAddress,
 } from '@suite-common/wallet-utils';
 import { Icon, IconButton, Input, Link, Row, Text } from '@trezor/components';
 import TrezorConnect from '@trezor/connect';
@@ -39,12 +42,7 @@ import { InputError } from 'src/components/wallet';
 import { type InputErrorProps } from 'src/components/wallet/InputError';
 import { useDispatch, useSelector } from 'src/hooks/suite';
 import { useSendFormContext } from 'src/hooks/wallet';
-import { resolveViaRPC, useResolveNamedAddress } from 'src/hooks/wallet/useResolveNamedAddress';
 import { useAnalytics } from 'src/support/useAnalytics';
-import {
-    isSymbolSupportingNamedAddress,
-    looksLikeNamedAddress,
-} from 'src/utils/suite/namedAddress';
 import { getProtocolInfo } from 'src/utils/suite/protocol';
 import { captureSentryMessage } from 'src/utils/suite/sentry';
 
@@ -349,28 +347,35 @@ export const Address = ({ output, outputId, outputsCount }: AddressProps) => {
                     return translationString('TR_ADDRESS_CANT_VERIFY_HISTORY');
                 }
 
+                if (isNamedInput) {
+                    // Resolve directly via UniversalResolver RPC — Blockbook's
+                    // `getAccountInfo` descriptor override is currently broken
+                    // for ENS-style inputs, so we no longer rely on it here.
+                    let resolved: string | null;
+                    try {
+                        resolved = await resolveViaRPC(recipientInput, symbol);
+                    } catch {
+                        return translationString('TR_ENS_RESOLVE_FAILED');
+                    }
+                    if (!resolved) {
+                        return translationString('TR_ENS_RESOLVE_FAILED');
+                    }
+                    setValue(resolvedAddressInputName, resolved);
+                    composeTransaction(amountInputName);
+
+                    return;
+                }
+
                 const result = await TrezorConnect.getAccountInfo({
                     descriptor: recipientInput,
                     coin: symbol,
                 });
 
                 if (!result.success) {
-                    return isNamedInput
-                        ? translationString('TR_ENS_RESOLVE_FAILED')
-                        : translationString('TR_ADDRESS_CANT_VERIFY_HISTORY');
+                    return translationString('TR_ADDRESS_CANT_VERIFY_HISTORY');
                 }
 
                 const { payload } = result;
-
-                if (isNamedInput) {
-                    // For dotted inputs, payload.descriptor is Blockbook's resolved hex
-                    // (see @trezor/connect getAccountInfo descriptor override).
-                    // Recompose now that the onchain address is known.
-                    setValue(resolvedAddressInputName, payload.descriptor);
-                    composeTransaction(amountInputName);
-
-                    return;
-                }
 
                 if (networkType === 'ethereum' && !checkAddressCheckSum(recipientInput)) {
                     // Eth addresses are valid without checksum but Trezor displays them as checksummed.

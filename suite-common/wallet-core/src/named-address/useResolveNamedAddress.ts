@@ -3,7 +3,7 @@ import { type NetworkSymbol } from '@suite-common/wallet-config';
 import { isSymbolSupportingNamedAddress, looksLikeNamedAddress } from '@suite-common/wallet-utils';
 import { useDebouncedValue } from '@trezor/react-utils';
 
-import { resolveViaBlockbook } from './resolveNamedAddresBB';
+import { resolveViaRPC } from './resolveNamedAddress';
 
 const STALE_TIME_MS = 10 * 60 * 1000;
 const GC_TIME_MS = 60 * 60 * 1000;
@@ -19,12 +19,13 @@ const getResolveMode = (value: string, symbol: NetworkSymbol | null | undefined)
 };
 
 export const getResolveFn = (debouncedMode: ResolveMode) => {
-    if (debouncedMode === 'forward') return resolveViaBlockbook;
+    if (debouncedMode === 'forward') return resolveViaRPC;
     throw new Error(`Unsupported resolve mode: ${debouncedMode}`);
 };
 
 /**
- * As blockbook API only works in forward mode, we return 'forward' for now.
+ * As reverse mode is not yet wired up in the UI, we only handle forward
+ * resolution — which goes via UniversalResolver RPC (see ./resolveNamedAddress).
  */
 export const useResolveNamedAddress = (value: string, symbol: NetworkSymbol | null | undefined) => {
     // Normalize at the entry so the queryKey, debounce comparison and queryable check
@@ -40,7 +41,9 @@ export const useResolveNamedAddress = (value: string, symbol: NetworkSymbol | nu
 
     const query = useQuery({
         queryKey: commonQueryKeys.resolveNamedAddress(symbol ?? 'unknown', debouncedValue),
-        queryFn: () => getResolveFn(debouncedMode)!(debouncedValue),
+        // `enabled` below guarantees `symbol` is a real NetworkSymbol whenever
+        // queryFn runs (idle mode requires `symbol` to be falsy or unsupported).
+        queryFn: () => getResolveFn(debouncedMode)!(debouncedValue, symbol as NetworkSymbol),
         enabled: !isDebouncing && debouncedMode !== 'idle',
         staleTime: STALE_TIME_MS,
         gcTime: GC_TIME_MS,

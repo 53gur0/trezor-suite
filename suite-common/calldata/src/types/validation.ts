@@ -22,5 +22,7 @@ export type IssueCode =
     | 'ZERO_AMOUNT'
     | 'EXCEEDS_UINT256'
     | 'INVALID_BYTES32'
+    | 'INVALID_BYTES'
+    | 'INVALID_ENS_NAME'
     | 'ARRAYS_LENGTH_MISMATCH'
     | 'ENCODING_FAILED';

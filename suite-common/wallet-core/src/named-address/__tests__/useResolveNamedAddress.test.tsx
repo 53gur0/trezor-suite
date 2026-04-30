@@ -18,20 +18,17 @@ jest.mock('@trezor/react-utils', () => ({
     useDebouncedValue: <T,>(value: T) => value,
 }));
 
-const mockGetAddress = jest.fn();
+const mockResolveViaRPC = jest.fn();
 
-jest.mock('@trezor/connect', () => ({
-    __esModule: true,
-    default: {
-        getAddress: (...args: unknown[]) => mockGetAddress(...args),
-    },
+jest.mock('../resolveNamedAddress', () => ({
+    resolveViaRPC: (...args: unknown[]) => mockResolveViaRPC(...args),
 }));
 
 const RESOLVED_HEX = '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045';
 
 describe('useResolveNamedAddress', () => {
     beforeEach(() => {
-        mockGetAddress.mockReset();
+        mockResolveViaRPC.mockReset();
     });
 
     describe('idle mode (no fetch)', () => {
@@ -43,7 +40,7 @@ describe('useResolveNamedAddress', () => {
             expect(result.current.mode).toBe('idle');
             expect(result.current.isResolving).toBe(false);
             expect(result.current.resolvedAddress).toBeUndefined();
-            expect(mockGetAddress).not.toHaveBeenCalled();
+            expect(mockResolveViaRPC).not.toHaveBeenCalled();
         });
 
         it('is idle when the symbol is null', () => {
@@ -52,7 +49,7 @@ describe('useResolveNamedAddress', () => {
             );
 
             expect(result.current.mode).toBe('idle');
-            expect(mockGetAddress).not.toHaveBeenCalled();
+            expect(mockResolveViaRPC).not.toHaveBeenCalled();
         });
 
         it('is idle when the value looks like a hex address (no dot)', () => {
@@ -61,7 +58,7 @@ describe('useResolveNamedAddress', () => {
             );
 
             expect(result.current.mode).toBe('idle');
-            expect(mockGetAddress).not.toHaveBeenCalled();
+            expect(mockResolveViaRPC).not.toHaveBeenCalled();
         });
 
         it('is idle for a bare identifier without a dot', () => {
@@ -70,16 +67,13 @@ describe('useResolveNamedAddress', () => {
             );
 
             expect(result.current.mode).toBe('idle');
-            expect(mockGetAddress).not.toHaveBeenCalled();
+            expect(mockResolveViaRPC).not.toHaveBeenCalled();
         });
     });
 
-    describe('forward mode (resolves via Blockbook)', () => {
+    describe('forward mode (resolves via RPC)', () => {
         it('resolves a named input on eth mainnet', async () => {
-            mockGetAddress.mockResolvedValueOnce({
-                success: true,
-                payload: { address: RESOLVED_HEX },
-            });
+            mockResolveViaRPC.mockResolvedValueOnce(RESOLVED_HEX);
 
             const { result } = renderHookWithQueryClient(() =>
                 useResolveNamedAddress('vitalik.eth', 'eth'),
@@ -92,17 +86,11 @@ describe('useResolveNamedAddress', () => {
             expect(result.current.data).toBe(RESOLVED_HEX);
             expect(result.current.resolvedAddress).toBe(RESOLVED_HEX);
             expect(result.current.isResolveError).toBe(false);
-            expect(mockGetAddress).toHaveBeenCalledWith({
-                address: 'vitalik.eth',
-                path: [],
-            });
+            expect(mockResolveViaRPC).toHaveBeenCalledWith('vitalik.eth', 'eth');
         });
 
         it('resolves a named input on tsep', async () => {
-            mockGetAddress.mockResolvedValueOnce({
-                success: true,
-                payload: { address: RESOLVED_HEX },
-            });
+            mockResolveViaRPC.mockResolvedValueOnce(RESOLVED_HEX);
 
             const { result } = renderHookWithQueryClient(() =>
                 useResolveNamedAddress('vitalik.eth', 'tsep'),
@@ -110,32 +98,37 @@ describe('useResolveNamedAddress', () => {
 
             await waitFor(() => expect(result.current.isSuccess).toBe(true));
             expect(result.current.resolvedAddress).toBe(RESOLVED_HEX);
+            expect(mockResolveViaRPC).toHaveBeenCalledWith('vitalik.eth', 'tsep');
         });
 
-        it('trims whitespace before calling TrezorConnect', async () => {
-            mockGetAddress.mockResolvedValueOnce({
-                success: true,
-                payload: { address: RESOLVED_HEX },
-            });
+        it('trims whitespace before calling resolveViaRPC', async () => {
+            mockResolveViaRPC.mockResolvedValueOnce(RESOLVED_HEX);
 
             const { result } = renderHookWithQueryClient(() =>
                 useResolveNamedAddress('  vitalik.eth  ', 'eth'),
             );
 
             await waitFor(() => expect(result.current.isSuccess).toBe(true));
-            expect(mockGetAddress).toHaveBeenCalledWith({
-                address: 'vitalik.eth',
-                path: [],
-            });
+            expect(mockResolveViaRPC).toHaveBeenCalledWith('vitalik.eth', 'eth');
+        });
+
+        it('treats a null result (no record) as a resolve error', async () => {
+            mockResolveViaRPC.mockResolvedValueOnce(null);
+
+            const { result } = renderHookWithQueryClient(() =>
+                useResolveNamedAddress('nope.eth', 'eth'),
+            );
+
+            await waitFor(() => expect(result.current.isSuccess).toBe(true));
+            expect(result.current.data).toBeNull();
+            expect(result.current.resolvedAddress).toBeUndefined();
+            expect(result.current.isResolveError).toBe(true);
         });
     });
 
     describe('error states', () => {
-        it('surfaces a query error when TrezorConnect reports failure', async () => {
-            mockGetAddress.mockResolvedValue({
-                success: false,
-                error: { message: 'not found' },
-            });
+        it('surfaces a query error when resolveViaRPC throws', async () => {
+            mockResolveViaRPC.mockRejectedValue(new Error('not found'));
 
             const { result } = renderHookWithQueryClient(() =>
                 useResolveNamedAddress('nope.eth', 'eth'),

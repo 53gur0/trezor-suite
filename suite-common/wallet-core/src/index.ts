@@ -37,6 +37,8 @@ export * from './fiat-rates/fiatRatesSelectors';
 export * from './fiat-rates/fiatRatesThunks';
 export type * from './fiat-rates/fiatRatesTypes';
 export * from './formDrafts';
+export * from './named-address/resolveNamedAddress';
+export * from './named-address/useResolveNamedAddress';
 export * from './selectors';
 export type * from './send/composeCancelTransaction/cancelTransactionTypes';
 export * from './send/composeCancelTransaction/composeCancelTransactionThunk';
