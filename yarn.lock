@@ -11253,11 +11253,6 @@ __metadata:
   resolution: "@suite-common/test-utils@workspace:suite-common/test-utils"
   dependencies:
     "@reduxjs/toolkit": "npm:2.12.0"
-    "@suite-common/address": "workspace:*"
-    "@suite-common/analytics": "workspace:*"
-    "@suite-common/bip329-types": "workspace:*"
-    "@suite-common/networks": "workspace:*"
-    "@suite-common/platform-encryption": "workspace:*"
     "@suite-common/react-query": "workspace:*"
     "@suite-common/redux-extra-dependencies": "workspace:*"
     "@suite-common/redux-utils": "workspace:*"
@@ -11511,6 +11506,7 @@ __metadata:
     react: "npm:19.2.3"
     react-hook-form: "npm:^7.77.0"
     react-redux: "npm:9.3.0"
+    viem: "npm:^2.54.1"
   languageName: unknown
   linkType: soft
 
