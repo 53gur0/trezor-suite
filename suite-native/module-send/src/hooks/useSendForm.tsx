@@ -28,6 +28,7 @@ import {
     selectSendFormDraftByKey,
     sendFormActions,
     updateFeeInfoThunk,
+    useResolveNamedAddress,
 } from '@suite-common/wallet-core';
 import {
     type Account,
@@ -199,6 +200,15 @@ export const useSendForm = (accountKey: AccountKey, tokenContract?: TokenAddress
     const { handleSubmit, control, getValues, trigger, setError } = form;
     const watchedFormValues = useWatch({ control });
     const watchedAddress = useWatch({ name: 'outputs.0.address', control });
+
+    const { mode: namedAddressMode, isResolving } = useResolveNamedAddress(
+        watchedAddress ?? '',
+        account?.symbol,
+    );
+    // A name that has not finished resolving has no onchain address yet, so submitting now would
+    // compose against the name itself, or against fee levels left over from a previous recipient.
+    // Reverse lookups are excluded: those run on an address that is already valid to send to.
+    const isResolvingNamedAddress = namedAddressMode === 'forward' && isResolving;
 
     const updateFormState = useCallback(async () => {
         if (account && network && networkFeeInfo) {
@@ -521,5 +531,6 @@ export const useSendForm = (accountKey: AccountKey, tokenContract?: TokenAddress
         network,
         amount,
         feeLevelsMaxAmount,
+        isResolvingNamedAddress,
     };
 };

@@ -21,7 +21,10 @@ import {
     selectVisibleDeviceAccounts,
 } from '@suite-common/wallet-core';
 import { type AccountKey, toTokenAddress } from '@suite-common/wallet-types';
-import { convertAmountSubunitsToUnits } from '@suite-common/wallet-utils';
+import {
+    convertAmountSubunitsToUnits,
+    isSymbolSupportingNamedAddress,
+} from '@suite-common/wallet-utils';
 import { type NativeAccountsRootState, selectFreshAccountAddress } from '@suite-native/accounts';
 import { events, selectNativeAnalyticsDep } from '@suite-native/analytics';
 import { Button, HStack, Text, VStack } from '@suite-native/atoms';
@@ -37,10 +40,12 @@ import {
 import { HELP_CENTER_EVM_ADDRESS_CHECKSUM, HELP_CENTER_SOLANA_HELP_URL } from '@trezor/urls';
 
 import { AddressInfoMessage } from './AddressInfoMessage';
+import { EnsResolutionMessage } from './EnsResolutionMessage';
 import { QrCodeBottomSheetIcon } from './QrCodeBottomSheetIcon';
 import { SendFormLabelEditable } from './SendFormLabelEditable';
 import { useAddressValidationAlerts } from '../hooks/useAddressValidationAlerts/useAddressValidationAlerts';
 import { useSolAssociatedTokenAddress } from '../hooks/useAddressValidationAlerts/useSolAssociatedTokenAddress';
+import { useResolvedAddress } from '../hooks/useResolvedAddress';
 import { type SendOutputsFormValues } from '../sendOutputsFormSchema';
 import { getOutputFieldName } from '../utils';
 
@@ -90,7 +95,14 @@ export const AddressInput = ({ index, accountKey, onQrNetworkMismatch }: Address
         selectFreshAccountAddress(state, accountKey),
     );
 
-    const { wasAddressChecksummed } = useAddressValidationAlerts({ inputIndex: index });
+    const { isResolvingName, resolvedAddress, reverseResolvedName } = useResolvedAddress({
+        inputIndex: index,
+        accountKey,
+    });
+    const { wasAddressChecksummed } = useAddressValidationAlerts({
+        inputIndex: index,
+        resolvedAddress,
+    });
 
     const [autocorrectMessageId, setAutocorrectMessageId] = useState<TxKeyPath | null>(null);
     const autocorrectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -256,7 +268,13 @@ export const AddressInput = ({ index, accountKey, onQrNetworkMismatch }: Address
         <VStack spacing="sp12">
             <HStack alignItems="center" justifyContent="space-between" spacing="sp12">
                 <Text variant="body-sm">
-                    <Translation id="moduleSend.outputs.recipients.addressLabel" />
+                    <Translation
+                        id={
+                            symbol && isSymbolSupportingNamedAddress(symbol)
+                                ? 'moduleSend.outputs.recipients.addressOrEnsLabel'
+                                : 'moduleSend.outputs.recipients.addressLabel'
+                        }
+                    />
                 </Text>
                 {/* Tokens labels wouldn't sync properly between desktop & mobile, so labeling is */}
                 {/* turned off for tokens until it's fixed. */}
@@ -304,6 +322,11 @@ export const AddressInput = ({ index, accountKey, onQrNetworkMismatch }: Address
                     link={HELP_CENTER_SOLANA_HELP_URL}
                 />
             )}
+            <EnsResolutionMessage
+                isResolving={isResolvingName}
+                resolvedAddress={resolvedAddress}
+                reverseResolvedName={reverseResolvedName}
+            />
         </VStack>
     );
 };

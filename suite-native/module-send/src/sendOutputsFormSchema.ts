@@ -12,6 +12,8 @@ import {
     formatNetworkAmount,
     isAmountWithinNetworkReserve,
     isDecimalsValid,
+    isSymbolSupportingNamedAddress,
+    looksLikeNamedAddress,
 } from '@suite-common/wallet-utils';
 import { type FeeLevelsMaxAmount } from '@suite-native/transaction-management';
 import { BigNumber, isNotNullOrUndefined } from '@trezor/utils';
@@ -123,6 +125,12 @@ const outputSchema = yup.object({
 
                 if (!addressValidator || !symbol) return false;
 
+                // A named input (e.g. ENS) is not an address, so the format check would always
+                // fail it. `is-name-resolved` gates it on the address it resolved to instead.
+                if (isSymbolSupportingNamedAddress(symbol) && looksLikeNamedAddress(value)) {
+                    return true;
+                }
+
                 const isTaprootValid =
                     isTaprootAvailable ||
                     !isTaprootAddress({ addressValidator, address: value, symbol });
@@ -133,6 +141,26 @@ const outputSchema = yup.object({
                     !isBech32AddressUppercase(value) && // bech32 addresses are valid as uppercase but are not accepted by Trezor
                     isTaprootValid // bech32m/Taproot addresses are valid but may not be supported by older FW
                 );
+            },
+        )
+        .test(
+            'is-name-resolved',
+            'Could not resolve name. Check that the name is correct.',
+            function (value, { options: { context } }: yup.TestContext<SendFormFormContext>) {
+                const { addressValidator, symbol } = context ?? {};
+
+                if (!value || !addressValidator || !symbol) return true;
+                if (!isSymbolSupportingNamedAddress(symbol)) return true;
+                if (!looksLikeNamedAddress(value)) return true;
+
+                const { resolvedAddress } = this.parent as { resolvedAddress?: string };
+
+                // `undefined` means the resolution has not settled yet, so there is nothing to
+                // fail on. Submission is blocked meanwhile by the send screen, not here — erroring
+                // while a name is still resolving would flash on every keystroke.
+                if (resolvedAddress === undefined) return true;
+
+                return addressValidator.isAddressValid(resolvedAddress, symbol);
             },
         )
         .test(
@@ -266,6 +294,9 @@ const outputSchema = yup.object({
     fiat: yup.string(),
     token: yup.string().required().nullable(),
     label: yup.string(),
+    // Onchain address a named input resolved to. Written by `useResolvedAddress`, read by the
+    // `is-name-resolved` test above and by composing/signing through the send form draft.
+    resolvedAddress: yup.string(),
 });
 
 export type OutputsFormValues = yup.InferType<typeof outputSchema>;
